@@ -1,0 +1,138 @@
+import networkx as nx
+import matplotlib.pyplot as plt
+from tkinter import Tk, Label, Listbox, Button, StringVar, messagebox
+
+
+class GrapheGuadeloupe:
+    def __init__(self):
+        self.graph = nx.DiGraph()
+
+    def ajouter_communes(self, communes):
+        for commune, coordonnees in communes.items():
+            self.graph.add_node(commune, pos=coordonnees)
+
+    def ajouter_liaisons(self, liaisons):
+        for liaison in liaisons:
+            commune1, commune2, distance = liaison
+            self.graph.add_edge(commune1, commune2, distance=distance)
+            self.graph.add_edge(commune2, commune1, distance=distance)  # Ajout de la deuxième flèche
+
+    def afficher_graphe(self, commune_selectionnee=None):
+        pos = nx.get_node_attributes(self.graph, 'pos')
+        edge_labels = {}
+        for edge in self.graph.edges(data=True):
+            edge_labels[(edge[0], edge[1])] = f"{edge[2]['distance']} km"
+
+        # Afficher la commune sélectionnée en surbrillance
+        node_colors = ['red' if node == commune_selectionnee else 'skyblue' for node in self.graph.nodes()]
+
+        nx.draw(self.graph, pos, with_labels=True, node_size=700, node_color=node_colors, font_size=8,
+                font_color='black', font_weight='bold', edge_color='gray', font_family='sans-serif',
+                connectionstyle="arc3,rad=0.1", arrows=True, arrowsize=20, arrowstyle='->', edgecolors='black')
+
+        nx.draw_networkx_edge_labels(self.graph, pos, edge_labels=edge_labels)
+
+        plt.show()
+
+
+class InterfaceUtilisateur:
+    def __init__(self, fenetre, graphe):
+        self.fenetre = fenetre
+        self.fenetre.title("Sélection de Commune")
+        self.graphe = graphe
+
+        self.label = Label(fenetre, text="Sélectionnez une commune comme point de départ:")
+        self.label.pack()
+
+        self.liste_communes = Listbox(fenetre)
+        for commune in graphe.graph.nodes():
+            self.liste_communes.insert('end', commune)
+        self.liste_communes.pack()
+
+        self.commune_selectionnee = StringVar()
+        self.bouton_valider = Button(fenetre, text="Valider", command=self.valider_commune)
+        self.bouton_valider.pack()
+
+    def valider_commune(self):
+        commune_selectionnee = self.liste_communes.get(self.liste_communes.curselection())
+        if commune_selectionnee:
+            self.graphe.afficher_graphe(commune_selectionnee)
+        else:
+            messagebox.showwarning("Erreur", "Veuillez sélectionner une commune.")
+
+
+if __name__ == "__main__":
+    guadeloupe = GrapheGuadeloupe()
+
+    coordonnees_communes = {
+        'Sainte-rose': (15.999, -61.1655),
+        'Deshaies': (15.8544, -61.2756),
+        'Pointe-Noire': (15.8522, -61.3823),
+        'Bouillante': (15.8544, -61.4709),
+        'Vieux-Habitants': (15.8583, -61.5490),
+        'Baillif': (15.8622, -61.6197),
+        'Basse-Terre': (15.8731, -61.6844),
+        'Saint-Claude': (15.9888, -61.6124),
+        'Gourbeyre': (15.9919, -61.6756),
+        'Vieux-Fort': (15.9220, -61.7456),
+        'Trois-Rivières': (16.0167, -61.7937),
+        'Capesterre': (16.1254, -61.7370),
+        'Goyave': (16.1549, -61.6654),
+        'Petit-Bourg': (16.1565, -61.5727),
+        'Baie-Mahault': (16.253, -61.3440),
+        'Les Abymes': (16.384, -61.4124),
+        'Pointe-à-Pitre': (16.3436, -61.5553),
+        'Le Gosier': (16.5098, -61.6039),
+        'Sainte-Anne': (16.6810, -61.6373),
+        'Saint-François': (16.9003, -61.6365),
+        'Le Moule': (16.801, -61.4763),
+        'Anse-Bertrand': (16.636, -61.1305),
+        'Port-Louis': (16.546, -61.2112),
+        'Petit-Canal': (16.503, -61.3073),
+        'Morne-à-L eau': (16.527, -61.3831),
+        'Lamentin': (16.151, -61.2574),
+    }
+
+    liaisons = [
+        ('Sainte-rose', 'Lamentin', 13),
+        ('Lamentin', 'Baie-Mahault', 8),
+        ('Les Abymes', 'Morne-à-L eau', 9),
+        ('Morne-à-L eau', 'Port-Louis', 17),
+        ('Port-Louis', 'Anse-Bertrand', 8),
+        ('Anse-Bertrand', 'Le Moule', 28),
+        ('Le Moule', 'Saint-François', 14),
+        ('Saint-François', 'Sainte-Anne', 15),
+        ('Sainte-Anne', 'Le Gosier', 15),
+        ('Le Gosier', 'Pointe-à-Pitre', 8),
+        ('Petit-Bourg', 'Goyave', 7),
+        ('Goyave', 'Capesterre', 13),
+        ('Capesterre', 'Trois-Rivières', 15),
+        ('Trois-Rivières', 'Vieux-Fort', 9),
+        ('Saint-Claude', 'Basse-Terre', 6),
+        ('Basse-Terre', 'Baillif', 4),
+        ('Baillif', 'Vieux-Habitants', 7),
+        ('Vieux-Habitants', 'Bouillante', 12),
+        ('Bouillante', 'Pointe-Noire', 15),
+        ('Pointe-Noire', 'Deshaies', 13),
+        ('Deshaies', 'Sainte-rose', 15),
+        ('Pointe-Noire', 'Petit-Bourg', 35),
+        ('Basse-Terre', 'Vieux-Fort', 9),
+        ('Basse-Terre', 'Gourbeyre', 7),
+        ('Baie-Mahault', 'Les Abymes', 13),
+        ('Les Abymes', 'Pointe-à-Pitre', 6),
+        ('Sainte-Anne', 'Le Moule', 15),
+        ('Le Moule', 'Morne-à-L eau', 14),
+        ('Petit-Canal', 'Morne-à-L eau', 9),
+        ('Petit-Canal', 'Port-Louis', 9),
+        ('Petit-Canal', 'Le Moule', 18),
+        ('Gourbeyre', 'Trois-Rivières', 9),
+        ('Petit-Bourg', 'Baie-Mahault', 11),
+    ]
+
+    guadeloupe.ajouter_communes(coordonnees_communes)
+    guadeloupe.ajouter_liaisons(liaisons)
+
+    fenetre_principale = Tk()
+    interface = InterfaceUtilisateur(fenetre_principale, guadeloupe)
+
+    fenetre_principale.mainloop()
