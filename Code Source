@@ -1,7 +1,6 @@
 import networkx as nx
 import matplotlib.pyplot as plt
-from tkinter import Tk, Label, Listbox, Button, StringVar, messagebox
-
+from tkinter import Tk, Label, Listbox, Button, StringVar, messagebox, Toplevel, ttk
 
 class GrapheGuadeloupe:
     def __init__(self):
@@ -14,26 +13,23 @@ class GrapheGuadeloupe:
     def ajouter_liaisons(self, liaisons):
         for liaison in liaisons:
             commune1, commune2, distance = liaison
-            self.graph.add_edge(commune1, commune2, distance=distance)
-            self.graph.add_edge(commune2, commune1, distance=distance)  # Ajout de la deuxième flèche
+            self.graph.add_edge(commune1, commune2, distance=float(distance))
+            self.graph.add_edge(commune2, commune1, distance=float(distance))
 
-    def afficher_graphe(self, commune_selectionnee=None):
+    def afficher_graphe(self, commune_selectionnee=None, communes_selectionnees=None):
         pos = nx.get_node_attributes(self.graph, 'pos')
-        edge_labels = {}
-        for edge in self.graph.edges(data=True):
-            edge_labels[(edge[0], edge[1])] = f"{edge[2]['distance']} km"
+        edge_labels = {(edge[0], edge[1]): f"{edge[2]['distance']} km" for edge in self.graph.edges(data=True)}
 
-        # Afficher la commune sélectionnée en surbrillance
-        node_colors = ['red' if node == commune_selectionnee else 'skyblue' for node in self.graph.nodes()]
+        node_colors = ['red' if node == commune_selectionnee else 'orange' if node in communes_selectionnees else 'skyblue'
+                       for node in self.graph.nodes()]
 
-        nx.draw(self.graph, pos, with_labels=True, node_size=700, node_color=node_colors, font_size=8,
+        plt.figure(figsize=(12, 9))
+        nx.draw(self.graph, pos, with_labels=True, node_size=1000, node_color=node_colors, font_size=10,
                 font_color='black', font_weight='bold', edge_color='gray', font_family='sans-serif',
                 connectionstyle="arc3,rad=0.1", arrows=True, arrowsize=20, arrowstyle='->', edgecolors='black')
 
         nx.draw_networkx_edge_labels(self.graph, pos, edge_labels=edge_labels)
-
         plt.show()
-
 
 class InterfaceUtilisateur:
     def __init__(self, fenetre, graphe):
@@ -41,24 +37,87 @@ class InterfaceUtilisateur:
         self.fenetre.title("Sélection de Commune")
         self.graphe = graphe
 
-        self.label = Label(fenetre, text="Sélectionnez une commune comme point de départ:")
-        self.label.pack()
+        self.label = Label(fenetre, text="Sélectionnez une commune comme point de départ:", font=("Helvetica", 14))
+        self.label.pack(pady=10)
 
-        self.liste_communes = Listbox(fenetre)
+        self.liste_communes = Listbox(fenetre, selectmode="single", font=("Helvetica", 12), height=15)
         for commune in graphe.graph.nodes():
             self.liste_communes.insert('end', commune)
-        self.liste_communes.pack()
+        self.liste_communes.pack(pady=10)
 
-        self.commune_selectionnee = StringVar()
-        self.bouton_valider = Button(fenetre, text="Valider", command=self.valider_commune)
-        self.bouton_valider.pack()
+        self.commune_selectionnee = None
+        self.bouton_valider = Button(fenetre, text="Valider", command=self.valider_commune, font=("Helvetica", 12))
+        self.bouton_valider.pack(pady=10)
 
     def valider_commune(self):
-        commune_selectionnee = self.liste_communes.get(self.liste_communes.curselection())
-        if commune_selectionnee:
-            self.graphe.afficher_graphe(commune_selectionnee)
+        self.commune_selectionnee = self.liste_communes.get(self.liste_communes.curselection())
+        if self.commune_selectionnee:
+            self.ouvrir_fenetre_selection()
         else:
             messagebox.showwarning("Erreur", "Veuillez sélectionner une commune.")
+
+    def ouvrir_fenetre_selection(self):
+        fenetre_selection = Toplevel(self.fenetre)
+        fenetre_selection.title("Sélection des communes suivantes")
+
+        label_selection = Label(fenetre_selection, text="Sélectionnez les autres communes:", font=("Helvetica", 14))
+        label_selection.pack(pady=10)
+
+        liste_communes_selection = Listbox(fenetre_selection, selectmode="multiple", font=("Helvetica", 12), height=15)
+        for commune in self.graphe.graph.nodes():
+            if commune != self.commune_selectionnee:
+                liste_communes_selection.insert('end', commune)
+        liste_communes_selection.pack(pady=10)
+
+        bouton_valider_selection = Button(fenetre_selection, text="Valider",
+                                          command=lambda: self.valider_selection(liste_communes_selection),
+                                          font=("Helvetica", 12))
+        bouton_valider_selection.pack(pady=10)
+
+    def valider_selection(self, liste_communes_selection):
+        communes_selectionnees = [liste_communes_selection.get(i) for i in liste_communes_selection.curselection()]
+
+        if len(communes_selectionnees) <= 6:
+            if len(communes_selectionnees) == 0:
+                messagebox.showwarning("Erreur", "Veuillez sélectionner au moins une commune.")
+            else:
+                self.graphe.afficher_graphe(self.commune_selectionnee, communes_selectionnees)
+                self.afficher_tableau_chemin(self.commune_selectionnee, communes_selectionnees)
+        else:
+            messagebox.showwarning("Erreur", "Veuillez sélectionner au maximum 6 communes.")
+
+    def afficher_tableau_chemin(self, commune_depart, communes_selectionnees):
+        fenetre_tableau = Toplevel(self.fenetre)
+        fenetre_tableau.title("Tableau du chemin le plus court")
+
+        tableau = ttk.Treeview(fenetre_tableau)
+        tableau["columns"] = ("Commune Départ", "Commune Arrivée", "Distance")
+
+        tableau.heading("Commune Départ", text="Commune Départ")
+        tableau.heading("Commune Arrivée", text="Commune Arrivée")
+        tableau.heading("Distance", text="Distance")
+
+        # Utiliser l'algorithme de Dijkstra pour trouver le chemin le plus court
+        path = nx.shortest_path(self.graphe.graph, source=commune_depart, weight='distance')
+
+        for i in range(len(path) - 1):
+            commune_depart = path[i]
+            commune_arrivee = path[i + 1]
+            distance = self.graphe.graph[commune_depart][commune_arrivee]['distance']
+            tableau.insert("", "end", values=(commune_depart, commune_arrivee, f"{distance} km"))
+
+        # Ajouter la dernière étape pour revenir au point de départ
+        commune_depart = path[-1]
+        commune_arrivee = path[0]
+        distance_dernier_point = self.graphe.graph[commune_depart][commune_arrivee]['distance']
+        tableau.insert("", "end", values=(commune_depart, commune_arrivee, f"{distance_dernier_point} km"))
+
+        distance_totale = sum(
+            self.graphe.graph[commune_depart][commune_arrivee]['distance'] for commune_depart, commune_arrivee in
+            zip(path, path[1:]))
+        tableau.insert("", "end", values=("Total", "", f"{distance_totale} km"))
+
+        tableau.pack(side='left')
 
 
 if __name__ == "__main__":
@@ -133,6 +192,7 @@ if __name__ == "__main__":
     guadeloupe.ajouter_liaisons(liaisons)
 
     fenetre_principale = Tk()
+    fenetre_principale.geometry("1200x500")
     interface = InterfaceUtilisateur(fenetre_principale, guadeloupe)
 
     fenetre_principale.mainloop()
